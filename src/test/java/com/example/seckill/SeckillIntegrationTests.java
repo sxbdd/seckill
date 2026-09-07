@@ -300,5 +300,44 @@ class SeckillIntegrationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(aid));
     }
-}
 
+    @Test
+    void admin_end_delete_and_update_stock() throws Exception {
+        String admin = adminToken();
+
+        // 改库存：5 -> 3
+        long aid = createActivity(admin, 5, -5);
+        String stockBody = om.writeValueAsString(Map.of("stock", 3));
+        mvc.perform(post("/api/admin/activities/" + aid + "/stock")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON).content(stockBody))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.code").value(200));
+        SeckillStock stock = stockMapper.selectOne(new LambdaQueryWrapper<SeckillStock>().eq(SeckillStock::getActivityId, aid));
+        assertEquals(3, stock.getStock());
+
+        // 立即结束 -> 之后秒杀返回 1002
+        mvc.perform(post("/api/admin/activities/" + aid + "/end")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.code").value(200));
+        String user = register("user1");
+        assertEquals(1002, code(seckill(user, aid)));
+
+        // 无订单 -> 可删除；删除后秒杀返回 1003
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/admin/activities/" + aid)
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.code").value(200));
+        assertEquals(1003, code(seckill(user, aid)));
+    }
+
+    @Test
+    void admin_delete_blocked_when_orders_exist() throws Exception {
+        String admin = adminToken();
+        String user = register("user1");
+        long aid = createActivity(admin, 5, -5);
+        assertEquals(200, code(seckill(user, aid)));
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/admin/activities/" + aid)
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400));
+    }
+}

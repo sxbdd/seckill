@@ -1,6 +1,7 @@
 package com.example.seckill.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.seckill.common.BusinessException;
 import com.example.seckill.common.ResultCode;
@@ -9,9 +10,11 @@ import com.example.seckill.dto.ActivityVO;
 import com.example.seckill.dto.PageResult;
 import com.example.seckill.entity.Goods;
 import com.example.seckill.entity.SeckillActivity;
+import com.example.seckill.entity.SeckillOrder;
 import com.example.seckill.entity.SeckillStock;
 import com.example.seckill.mapper.GoodsMapper;
 import com.example.seckill.mapper.SeckillActivityMapper;
+import com.example.seckill.mapper.SeckillOrderMapper;
 import com.example.seckill.mapper.SeckillStockMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +36,7 @@ public class ActivityService {
 
     private final SeckillActivityMapper activityMapper;
     private final SeckillStockMapper stockMapper;
+    private final SeckillOrderMapper orderMapper;
     private final GoodsMapper goodsMapper;
     private final StringRedisTemplate redisTemplate;
 
@@ -67,6 +71,50 @@ public class ActivityService {
 
         preheat(activity, dto.stock());
         return activity.getId();
+    }
+
+    @Transactional
+    public void endNow(Long activityId) {
+        SeckillActivity activity = activityMapper.selectById(activityId);
+        if (activity == null) {
+            throw new BusinessException(ResultCode.ACTIVITY_NOT_EXIST);
+        }
+        LocalDateTime now = LocalDateTime.now();
+        activityMapper.update(null, new LambdaUpdateWrapper<SeckillActivity>()
+                .eq(SeckillActivity::getId, activityId)
+                .set(SeckillActivity::getEndTime, now)
+                .set(SeckillActivity::getStatus, 2));
+        log.info("管理员手动结束活动 activityId={}", activityId);
+    }
+
+    @Transactional
+    public void deleteActivity(Long activityId) {
+        SeckillActivity activity = activityMapper.selectById(activityId);
+        if (activity == null) {
+            throw new BusinessException(ResultCode.ACTIVITY_NOT_EXIST);
+        }
+        Long orderCount = orderMapper.selectCount(new LambdaQueryWrapper<SeckillOrder>().eq(SeckillOrder::getActivityId, activityId));
+        if (orderCount != null && orderCount > 0) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "该活动已有订单，不能删除");
+        }
+        activityMapper.deleteById(activityId);
+        stockMapper.delete(new LambdaQueryWrapper<SeckillStock>().eq(SeckillStock::getActivityId, activityId));
+        redisTemplate.delete("seckill:stock:" + activityId);
+        redisTemplate.delete("seckill:info:" + activityId);
+        log.info("管理员删除活动 activityId={}", activityId);
+    }
+
+    @Transactional
+    public void updateStock(Long activityId, Integer newStock) {
+        SeckillActivity activity = activityMapper.selectById(activityId);
+        if (activity == null) {
+            throw new BusinessException(ResultCode.ACTIVITY_NOT_EXIST);
+        }
+        stockMapper.update(null, new LambdaUpdateWrapper<SeckillStock>()
+                .eq(SeckillStock::getActivityId, activityId)
+                .set(SeckillStock::getStock, newStock));
+        preheat(activity, newStock);
+        log.info("管理员修改库存 activityId={} newStock={}", activityId, newStock);
     }
 
     public PageResult<ActivityVO> listUser(long page, long size) {
@@ -179,4 +227,3 @@ public class ActivityService {
         return dbStock(activityId) <= 0;
     }
 }
-

@@ -278,7 +278,12 @@ async function loadAdmin() {
                 <div style="font-weight:700">#${a.id} ${a.goodsName}</div>
                 <div style="color:#7a8194;font-size:13px">￥${a.seckillPrice} · 库存 ${a.stock ?? '-'} · 状态 ${STATUS[a.status] ? STATUS[a.status][0] : '-'}</div>
             </div>
-            <button class="btn btn-ghost btn-sm reload-btn" data-id="${a.id}">重置库存</button>`;
+            <div class="order-actions">
+                <button class="btn btn-ghost btn-sm reload-btn" data-id="${a.id}">重置库存</button>
+                <button class="btn btn-ghost btn-sm end-btn" data-id="${a.id}">立即结束</button>
+                <button class="btn btn-ghost btn-sm stock-btn" data-id="${a.id}">改库存</button>
+                <button class="btn btn-danger btn-sm del-btn" data-id="${a.id}">删除</button>
+            </div>`;
         box.appendChild(item);
     });
 }
@@ -317,6 +322,29 @@ function presetNow() {
     $('#f_end').value = fmtLocal(new Date(now.getTime() + 2 * 60 * 60 * 1000));
 }
 
+async function endActivity(activityId) {
+    const r = await api('/api/admin/activities/' + activityId + '/end', 'POST');
+    if (r.code === 200) { showToast('活动已结束', 'success'); loadAdmin(); loadActivities(); }
+    else showToast(r.message || '操作失败', 'error');
+}
+
+async function changeStock(activityId) {
+    const input = prompt('输入新的剩余库存（0~100000）：');
+    if (input === null) return;
+    const stock = Number(input);
+    if (Number.isNaN(stock) || stock < 0 || stock > 100000) { showToast('库存需在 0~100000 之间', 'error'); return; }
+    const r = await api('/api/admin/activities/' + activityId + '/stock', 'POST', { stock });
+    if (r.code === 200) { showToast('库存已更新为 ' + stock, 'success'); loadAdmin(); loadActivities(); }
+    else showToast(r.message || '操作失败', 'error');
+}
+
+async function deleteActivity(activityId) {
+    if (!confirm('确定删除该活动？已有订单的活动无法删除。')) return;
+    const r = await api('/api/admin/activities/' + activityId, 'DELETE');
+    if (r.code === 200) { showToast('活动已删除', 'success'); loadAdmin(); loadActivities(); }
+    else showToast(r.message || '删除失败', 'error');
+}
+
 // ---------- 事件绑定 ----------
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
 $('#loginBtn').addEventListener('click', () => showModal('login'));
@@ -341,8 +369,14 @@ $('#orderList').addEventListener('click', (e) => {
     if (cancel) cancelOrder(cancel.dataset.no);
 });
 $('#adminList').addEventListener('click', (e) => {
-    const btn = e.target.closest('.reload-btn');
-    if (btn) reloadStock(Number(btn.dataset.id));
+    const reload = e.target.closest('.reload-btn');
+    const end = e.target.closest('.end-btn');
+    const stock = e.target.closest('.stock-btn');
+    const del = e.target.closest('.del-btn');
+    if (reload) reloadStock(Number(reload.dataset.id));
+    if (end) endActivity(Number(end.dataset.id));
+    if (stock) changeStock(Number(stock.dataset.id));
+    if (del) deleteActivity(Number(del.dataset.id));
 });
 
 // ---------- 启动 ----------
@@ -351,3 +385,4 @@ loadActivities();
 if (state.token) { loadOrders(); if (state.role === 'ADMIN') loadAdmin(); }
 if (state.role === 'ADMIN') presetNow();
 timer = setInterval(updateCountdown, 1000);
+

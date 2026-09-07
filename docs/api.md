@@ -174,3 +174,8 @@ POST /api/admin/activities/{id}/stock/reload
 - `GET /api/goods?page=1&size=10`（公开，无鉴权）
 - 返回：`data: { total, list: [ {id, goodsName, goodsDesc, price, status} ] }`
 - 仅返回上架商品（status=1），按 id 升序分页。
+
+## 附2：管理端增强接口（v1.1 新增，均需 ADMIN）
+- `POST /api/admin/activities/{id}/end`：立即结束活动（把 endTime 置为当前时间，状态自动变为已结束）
+- `POST /api/admin/activities/{id}/stock`：手动改库存，body `{ "stock": n }`（0~100000），同步 DB + Redis
+- `DELETE /api/admin/activities/{id}`：删除活动（仅允许无订单的活动；有订单返回 400）
