@@ -1,0 +1,35 @@
+spring:
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/seckill_test?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf8
+    username: seckill
+    password: seckill123
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      database: 15
+      timeout: 2000ms
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema-test.sql
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+
+seckill:
+  redis-enabled: true
+  rate-limit-qps: 100000
+  token-ttl: 2h
+  admin-password: admin123
+  reconcile-enabled: false
+  reconcile-interval-ms: 60000

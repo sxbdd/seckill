@@ -1,0 +1,44 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: seckill
+  datasource:
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/seckill?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=utf8}
+    username: ${DB_USERNAME:seckill}
+    password: ${DB_PASSWORD:seckill123}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      database: ${REDIS_DATABASE:0}
+      timeout: 2000ms
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+seckill:
+  redis-enabled: ${SECKILL_REDIS_ENABLED:true}
+  rate-limit-qps: ${SECKILL_RATE_LIMIT_QPS:2000}
+  token-ttl: ${SECKILL_TOKEN_TTL:2h}
+  reconcile-enabled: ${SECKILL_RECONCILE_ENABLED:true}
+  admin-password: ${SECKILL_ADMIN_PASSWORD:admin123}
+  reconcile-interval-ms: 60000
+
