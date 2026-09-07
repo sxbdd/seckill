@@ -6,3 +6,8 @@ logs/
 *.log
 .env
 !/.env.example
+
+perf/tokens.csv
+perf/result-*.jtl
+perf/report-*/
+
