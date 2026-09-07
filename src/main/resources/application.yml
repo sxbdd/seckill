@@ -9,6 +9,8 @@ spring:
     username: ${DB_USERNAME:seckill}
     password: ${DB_PASSWORD:seckill123}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 50
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
@@ -37,13 +39,16 @@ management:
 seckill:
   redis-enabled: ${SECKILL_REDIS_ENABLED:true}
   rate-limit-qps: ${SECKILL_RATE_LIMIT_QPS:2000}
+  persist-mode: ${SECKILL_PERSIST_MODE:sync}
+  admin-password: ${SECKILL_ADMIN_PASSWORD:admin123}
   token-ttl: ${SECKILL_TOKEN_TTL:2h}
   reconcile-enabled: ${SECKILL_RECONCILE_ENABLED:true}
-  admin-password: ${SECKILL_ADMIN_PASSWORD:admin123}
   reconcile-interval-ms: 60000
 
 
 logging:
   pattern:
     console: "%d{HH:mm:ss.SSS} %-5level [%thread] [%X{traceId}] %logger{36} - %msg%n"
+
+
 

@@ -45,3 +45,33 @@ powershell -ExecutionPolicy Bypass -File perf\run-load.ps1 -Mode B -Threads 300 
 powershell -ExecutionPolicy Bypass -File perf\run-load.ps1 -Mode A -Threads 300 -Stock 50   # 方案A
 ```
 脚本会：清理旧压测用户 → 批量建用户+token(Redis) → 建活动 → 起应用(带容量参数) → 跑 JMeter → 停应用 → 输出 TPS/错误/库存核对。
+
+## 6. 性能优化（本轮新增：异步批量落库）
+- 背景：同步模式下每笔成功单在请求线程内同步写 DB（插订单+改库存），DB 写成为受理吞吐瓶颈。
+- 方案：新增 `seckill.persist-mode=sync|async`（默认 sync，向后兼容）。
+  - async：Redis 扣减成功即返回 orderNo，订单落库投递到内存有界队列，由单线程 worker 后台批量消费写 DB；
+  - 落库失败自动补偿（Redis 库存 +1、释放防重标记），保证不丢库存；
+  - 优点：请求线程不再等 DB 写，抢购受理吞吐大幅提升，等价于真实秒杀的"MQ 削峰"简化版；
+  - 代价：订单可见性变为最终一致（"我的订单"可能短暂看不到刚下的单）。
+- 容量参数（application.yml 默认）：Tomcat max-threads=500、accept-count=1000、Hikari pool=50。
+
+## 7. 并发承受区间（诚实结论）
+JMeter 瞬时突发（ramp=0）口径下：
+| 并发 | 模式 | TPS | 连接错误 | 成功请求→订单 | 剩余库存 | 结论 |
+|---|---|---|---|---|---|---|
+| 300 | sync/async | 170~315 | 0 | 一致 | 0 | ✅ 稳定 |
+| 500 | async | 270.9 | 186 | 314 → 314 | 186 | 连接层拒绝 |
+| 1000 | async | 275.3 | 217 | 783 → 783 | 217 | 连接层拒绝 |
+| 3000 | async | 370.4 | 1090 | 1910 → 1910 | 1090 | 连接层拒绝 |
+
+关键事实：
+1. 所有**到达应用**的请求，订单数与剩余库存严格吻合，**零超卖**；
+2. "连接错误"均为 `HttpHostConnectException`（TCP 连接被拒），发生在应用之外：本机瞬时 N 千个新连接 + TIME_WAIT 堆积 + accept/backlog 限制；
+3. 因此本机可靠承受区间约 **300 并发**；500+ 的"失败"是连接层不是业务层。
+
+## 8. 要继续提升真正的高并发，方向（按收益排序）
+1. 前端加 Nginx/haproxy 做连接复用与缓冲（最直接解决瞬时连接拒绝）；
+2. JMeter/客户端用连接复用（keep-alive 多迭代）而不是每线程新建连接；
+3. 异步落库 worker 改为批量插入（减少 DB 往返），或引入 RabbitMQ/Kafka 做削峰；
+4. MySQL 调优（innodb_buffer_pool_size 加大、降低 flush 频率做基准）；
+5. 应用无状态水平扩展（多实例 + Redis 分布式限流）。

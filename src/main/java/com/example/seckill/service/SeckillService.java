@@ -3,10 +3,12 @@ package com.example.seckill.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.seckill.common.BusinessException;
 import com.example.seckill.common.ResultCode;
+import com.example.seckill.dto.PendingOrder;
 import com.example.seckill.entity.SeckillActivity;
 import com.example.seckill.entity.SeckillStock;
 import com.example.seckill.mapper.SeckillActivityMapper;
 import com.example.seckill.mapper.SeckillStockMapper;
+import com.example.seckill.utils.OrderNoGenerator;
 import com.google.common.util.concurrent.RateLimiter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,10 +31,14 @@ public class SeckillService {
     private final StringRedisTemplate redisTemplate;
     private final DefaultRedisScript<Long> seckillScript;
     private final OrderService orderService;
+    private final OrderAsyncPersister orderAsyncPersister;
     private final RateLimiter seckillRateLimiter;
 
     @Value("${seckill.redis-enabled:true}")
     private boolean redisEnabled;
+
+    @Value("${seckill.persist-mode:sync}")
+    private String persistMode;
 
     public String grab(Long activityId, Long userId) {
         if (!seckillRateLimiter.tryAcquire(1)) {
@@ -77,8 +83,19 @@ public class SeckillService {
             throw new BusinessException(ResultCode.SOLD_OUT);
         }
 
+        String orderNo = OrderNoGenerator.next();
+        if ("async".equalsIgnoreCase(persistMode)) {
+            boolean enqueued = orderAsyncPersister.enqueue(new PendingOrder(activityId, userId, orderNo));
+            if (!enqueued) {
+                redisTemplate.opsForValue().increment(stockKey);
+                redisTemplate.delete(buyKey);
+                throw new BusinessException(ResultCode.TOO_MANY_REQUESTS, "系统繁忙，请稍后再试");
+            }
+            return orderNo;
+        }
+
         try {
-            return orderService.createSeckillOrder(activity, userId);
+            return orderService.createSeckillOrder(activity, userId, orderNo);
         } catch (BusinessException e) {
             redisTemplate.opsForValue().increment(stockKey);
             redisTemplate.delete(buyKey);

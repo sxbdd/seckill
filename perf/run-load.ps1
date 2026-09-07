@@ -60,7 +60,7 @@ Set-Content -LiteralPath $planPath -Value $jmx -Encoding ASCII
 
 $redisEnabled = 'true'
 if ($Mode -eq 'A') { $redisEnabled = 'false' }
-$proc = Start-Process -FilePath 'java' -ArgumentList @('-jar', $jar, "--server.port=$port", "--seckill.redis-enabled=$redisEnabled", "--server.tomcat.threads.max=500", "--server.tomcat.accept-count=1000", "--spring.datasource.hikari.maximum-pool-size=50") -WindowStyle Hidden -PassThru
+$proc = Start-Process -FilePath 'java' -ArgumentList @('-jar', $jar, "--server.port=$port", "--seckill.redis-enabled=$redisEnabled", "--server.tomcat.threads.max=500", "--server.tomcat.accept-count=1000", "--spring.datasource.hikari.maximum-pool-size=50", "--seckill.persist-mode=$Persist", "--seckill.rate-limit-qps=100000") -WindowStyle Hidden -PassThru
 $ok = $false
 for ($i = 0; $i -lt 60; $i++) {
   Start-Sleep -Seconds 1
@@ -96,12 +96,21 @@ if ($total -gt 0) { $durSec = ($maxT - $minT) / 1000.0; if ($durSec -le 0) { $du
 $tps = 0
 if ($total -gt 0) { $tps = [math]::Round($total / $durSec, 1) }
 
+$expected = [Math]::Min($Threads, $Stock)
+if ($Persist -eq 'async') {
+  for ($i = 0; $i -lt 90; $i++) {
+    $nowOrders = (& $mysql -N -uroot -proot --host=127.0.0.1 --port=3306 seckill -e "SELECT COUNT(*) FROM t_seckill_order WHERE activity_id=$aid;" 2>$null | Select-Object -Last 1)
+    if ([int]$nowOrders -ge [int]$expected) { break }
+    Start-Sleep -Seconds 1
+  }
+}
 $dbOrders = (& $mysql -N -uroot -proot --host=127.0.0.1 --port=3306 seckill -e "SELECT COUNT(*) FROM t_seckill_order WHERE activity_id=$aid;" 2>$null | Select-Object -Last 1)
 $dbStock = (& $mysql -N -uroot -proot --host=127.0.0.1 --port=3306 seckill -e "SELECT stock FROM t_seckill_stock WHERE activity_id=$aid;" 2>$null | Select-Object -Last 1)
 
 Write-Output "SCHEME=$Mode THREADS=$Threads STOCK=$Stock AID=$aid"
 Write-Output "JMETER_EXIT=$jmExit SAMPLES=$total ERRORS=$err DURATION_SEC=$([math]::Round($durSec,2)) TPS=$tps"
 Write-Output "DB_ORDERS=$dbOrders DB_STOCK=$dbStock CONSISTENT=$($dbOrders -eq $Stock -and $dbStock -eq 0)"
+
 
 
 

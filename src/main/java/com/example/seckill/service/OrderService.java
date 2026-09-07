@@ -40,13 +40,18 @@ public class OrderService {
 
     @Transactional
     public String createSeckillOrder(SeckillActivity activity, Long userId) {
+        return createSeckillOrder(activity, userId, OrderNoGenerator.next());
+    }
+
+    @Transactional
+    public String createSeckillOrder(SeckillActivity activity, Long userId, String orderNo) {
         int rows = stockMapper.reduceStock(activity.getId());
         if (rows == 0) {
             throw new BusinessException(ResultCode.SOLD_OUT);
         }
         Goods goods = goodsMapper.selectById(activity.getGoodsId());
         SeckillOrder order = new SeckillOrder();
-        order.setOrderNo(OrderNoGenerator.next());
+        order.setOrderNo(orderNo);
         order.setUserId(userId);
         order.setActivityId(activity.getId());
         order.setGoodsId(activity.getGoodsId());
@@ -58,7 +63,7 @@ public class OrderService {
         } catch (DuplicateKeyException e) {
             throw new BusinessException(ResultCode.REPEAT_PURCHASE);
         }
-        return order.getOrderNo();
+        return orderNo;
     }
 
     public PageResult<OrderVO> mine(long page, long size, Long userId) {
