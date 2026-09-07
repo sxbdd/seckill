@@ -45,3 +45,14 @@
 | 提示可抢但一直失败 | 活动时间窗/时区 → 核对 start/end（ADR-017 防时区坑） |
 | Redis 重启后异常 | 对账任务自动补预热；紧急用 4.15 手动 reload |
 | 压测错误率高 | 先看 DB 连接池/慢 SQL 日志，再谈优化 |
+
+## 7. v1.1 新增配置与排障补充
+| 配置项 | 环境变量 | 默认 | 说明 |
+|---|---|---|---|
+| 落库模式 | SECKILL_PERSIST_MODE | sync | async=异步落库（最终一致，吞吐更高） |
+| Tomcat 最大线程 | SERVER_TOMCAT_THREADS_MAX | 500 | 容量参数 |
+| Hikari 连接池 | SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE | 50 | 容量参数 |
+
+排障补充：
+- 压测出现大量 HttpHostConnectException：是客户端瞬时连接/TIME_WAIT 限制，不是业务错误；检查 accept-count 与客户端连接复用；
+- async 模式下订单短暂查不到：属预期最终一致；若长期缺失查 worker 日志（order-persist-worker）是否有补偿。

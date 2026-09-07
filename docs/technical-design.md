@@ -107,3 +107,13 @@ return -1
 - 全部 `LocalDateTime` + 数据库 DATETIME（Asia/Shanghai）；
 - 禁止用 `toEpochSecond(ZoneOffset.UTC)` 处理本地时间（历史教训：±8h 偏差）；
 - 与 Redis 比较用 epoch 秒时，统一 `ZoneId.systemDefault()` 显式转换。
+
+## 11. 异步落库（persist-mode=async，v1.1）
+- 目标：把"抢购受理"与"DB 落库"解耦，等价真实秒杀 MQ 削峰的简化版；
+- 流程：Redis 扣减成功 → 生成 orderNo → 投递到有界内存队列（100000）→ 立即返回；worker 单线程后台逐个执行"DB 条件更新 + 插订单"；
+- 失败补偿：DB 写失败/业务失败 → Redis 库存 +1、删除防重标记，保证不丢库存；
+- 语义：订单可见性变为最终一致（用户可能短暂看不到刚下的单）；默认 sync 模式保持即时一致。
+
+## 12. 容量参数与测试口径
+- application.yml 默认：Tomcat 500 线程/accept 1000、Hikari 50；
+- 压测结论：300 并发瞬时突发 0 错误；>=500 出现 TCP 连接层拒绝（HttpHostConnectException，非业务错误），服务器侧始终零超卖；详见 perf/load-test-report.md。

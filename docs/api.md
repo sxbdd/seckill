@@ -179,3 +179,5 @@ POST /api/admin/activities/{id}/stock/reload
 - `POST /api/admin/activities/{id}/end`：立即结束活动（把 endTime 置为当前时间，状态自动变为已结束）
 - `POST /api/admin/activities/{id}/stock`：手动改库存，body `{ "stock": n }`（0~100000），同步 DB + Redis
 - `DELETE /api/admin/activities/{id}`：删除活动（仅允许无订单的活动；有订单返回 400）
+
+> 备注：persist-mode=async 时，秒杀接口返回成功后订单落库是最终一致的，GET /api/orders/mine 可能短暂查不到新订单；接口契约本身不变。

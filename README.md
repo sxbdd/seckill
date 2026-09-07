@@ -10,7 +10,7 @@
 - 秒杀活动：运营创建（落库 + Redis 预热）、用户浏览 / 倒计时 / 有货状态
 - 秒杀下单：Redis + Lua 原子预扣 → DB 落库兜底（可配置降级为 DB 条件更新）
 - 订单：我的订单 / 详情 / 取消（回补库存）/ 模拟支付（幂等）
-- 工程能力：防重幂等（Redis SETNX + DB 生成列唯一索引）、定时对账、令牌桶限流、商品缓存（穿透/击穿防护）、统一异常与日志
+- 工程能力：防重幂等（Redis SETNX + DB 生成列唯一索引）、定时对账、令牌桶限流、商品缓存（穿透/击穿防护）、统一异常与日志（traceId）、异步落库（persist-mode=sync|async）
 
 ## 技术栈
 Spring Boot 3.3 · JDK 17 · MyBatis-Plus 3.5 · MySQL 8 · Redis · Guava · Maven · JUnit5 / MockMvc
@@ -19,6 +19,7 @@ Spring Boot 3.3 · JDK 17 · MyBatis-Plus 3.5 · MySQL 8 · Redis · Guava · Ma
 | 入口 | 说明 |
 |---|---|
 | [DESIGN.md](DESIGN.md) | 规格总索引 |
+| [perf/load-test-report.md](perf/load-test-report.md) | JMeter 压测报告 |
 | [docs/requirements.md](docs/requirements.md) | 需求规格 |
 | [docs/architecture.md](docs/architecture.md) | 架构 |
 | [docs/database-design.md](docs/database-design.md) | 数据库设计 + DDL |
@@ -31,6 +32,7 @@ Spring Boot 3.3 · JDK 17 · MyBatis-Plus 3.5 · MySQL 8 · Redis · Guava · Ma
 ## 目录结构
 ```
 seckill/
+├── perf/                      # JMeter 压测脚本与报告
 ├── docs/                     # 需求/架构/数据库/API/测试/部署/决策 文档
 ├── sql/schema.sql            # 建表 + 预置商品数据
 ├── src/main/java/com/example/seckill/
@@ -109,6 +111,7 @@ java -jar target/seckill-1.0.0.jar
 见 [docs/deployment.md](docs/deployment.md) §6 Runbook。
 
 > 一切规格以 `docs/` 为准；本文件是入口速览。
+
 
 
 

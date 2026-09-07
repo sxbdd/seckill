@@ -62,3 +62,8 @@ com.example.seckill
 ## 7. 演进路径（规模扩大时）
 CDN/静态化拦截 → 多实例水平扩容(需 Redis 分布式限流+分布式锁) → MQ 削峰 → 分库分表 → 微服务拆分（仅当团队/业务需要）。
 
+
+## 8. v1.1 运行形态补充（与代码对齐）
+- 部署容量默认参数（application.yml）：Tomcat max-threads=500、accept-count=1000、Hikari maximum-pool-size=50；
+- 新增异步落库 worker：OrderAsyncPersister（单线程消费内存队列写 DB），由 seckill.persist-mode=sync|async 切换（默认 sync）；
+- 压测与容量结论见 perf/load-test-report.md。

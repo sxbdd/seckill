@@ -49,3 +49,8 @@
 - 文档/代码变更后跑受影响用例（第 13 节变更流程要求）。
 
 > 补充：自动化并发测试已实现（ConcurrentNoOversellTest，150 线程抢 50 库存，断言成功数=50、库存=0、订单=50），无需 JMeter 即可在 CI/本地复现"无超卖"核心验收点；HTTP 级 TPS 数值仍建议用 JMeter 实测留档。
+
+## 6. 压测与并发自动化
+- 自动化并发测试：ConcurrentNoOversellTest（150 线程抢 50 库存，断言成功=50、库存=0、订单=50）；
+- JMeter 压测脚本与真实报告：perf/run-load.ps1 + perf/seckill-burst.jmx + perf/load-test-report.md；
+- 复现：powershell -ExecutionPolicy Bypass -File perf\run-load.ps1 -Mode B -Threads 300 -Stock 50。
