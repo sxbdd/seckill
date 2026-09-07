@@ -1,8 +1,11 @@
 package com.example.seckill.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.seckill.common.BusinessException;
 import com.example.seckill.common.ResultCode;
 import com.example.seckill.dto.GoodsVO;
+import com.example.seckill.dto.PageResult;
 import com.example.seckill.entity.Goods;
 import com.example.seckill.mapper.GoodsMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,6 +15,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Slf4j
@@ -24,6 +28,13 @@ public class GoodsService {
     private final GoodsMapper goodsMapper;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+
+    public PageResult<GoodsVO> list(long page, long size) {
+        Page<Goods> p = new Page<>(page, size);
+        goodsMapper.selectPage(p, new LambdaQueryWrapper<Goods>().eq(Goods::getStatus, 1).orderByAsc(Goods::getId));
+        List<GoodsVO> list = p.getRecords().stream().map(this::toVO).toList();
+        return new PageResult<>(p.getTotal(), list);
+    }
 
     public GoodsVO getById(Long id) {
         String cacheKey = "goods:info:" + id;
@@ -46,7 +57,6 @@ public class GoodsService {
             }
         }
 
-        // 未抢到锁：短暂等待后读一次缓存，仍无则直接回源
         try {
             Thread.sleep(50);
         } catch (InterruptedException e) {

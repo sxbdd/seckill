@@ -77,3 +77,11 @@
 - 理由：单人项目，避免无意义的接口间接层；record 不可变、适合传输对象。
 - 风险：未来若出现多实现/多团队，再按需抽接口。
 - 文档同步：architecture.md §3 包结构已同步更新。
+
+## ADR-022 本轮优化定案（前端 + 一致性 + 可观测性）
+- 新增浏览器前端（纯静态，Spring Boot 托管），替代 Swagger 方案；交互覆盖抢购/订单/管理。
+- 商品列表接口 GET /api/goods 补上，消除 requirements 与 api 的文档矛盾。
+- 日志增加 TraceIdFilter（MDC），日志格式带 %X{traceId}，对齐 technical-design §9。
+- Redis 库存扣减改为 Lua 内"缺失即用 DB 库存初始化再扣减"，消除重建竞态。
+- 秒杀落库补偿由捕获 BusinessException 扩展为捕获 Exception，缩短不一致窗口。
+- 活动 VO 增加 originalPrice 原价字段，用于前端折扣展示。

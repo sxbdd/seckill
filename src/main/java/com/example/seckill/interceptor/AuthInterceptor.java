@@ -57,6 +57,7 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
         if ("GET".equals(method)) {
             return uri.matches("^/api/goods/\\d+$")
+                    || uri.equals("/api/goods")
                     || uri.equals("/api/seckill/activities")
                     || uri.matches("^/api/seckill/activities/\\d+$");
         }
@@ -68,3 +69,4 @@ public class AuthInterceptor implements HandlerInterceptor {
         UserContext.clear();
     }
 }
+

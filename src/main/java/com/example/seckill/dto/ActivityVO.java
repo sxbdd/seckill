@@ -10,6 +10,7 @@ public record ActivityVO(
         Long goodsId,
         String goodsName,
         BigDecimal seckillPrice,
+        BigDecimal originalPrice,
         @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
         @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime endTime,
         Integer status,

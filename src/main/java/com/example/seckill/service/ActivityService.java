@@ -164,7 +164,8 @@ public class ActivityService {
         }
         Goods goods = goodsMapper.selectById(a.getGoodsId());
         String goodsName = goods == null ? "商品" + a.getGoodsId() : goods.getGoodsName();
-        return new ActivityVO(a.getId(), a.getGoodsId(), goodsName, a.getSeckillPrice(),
+        java.math.BigDecimal originalPrice = goods == null ? null : goods.getPrice();
+        return new ActivityVO(a.getId(), a.getGoodsId(), goodsName, a.getSeckillPrice(), originalPrice,
                 a.getStartTime(), a.getEndTime(), status, leftSeconds, soldOut, stock);
     }
 
@@ -178,3 +179,4 @@ public class ActivityService {
         return dbStock(activityId) <= 0;
     }
 }
+

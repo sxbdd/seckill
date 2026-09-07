@@ -1,9 +1,12 @@
 package com.example.seckill.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.seckill.common.BusinessException;
 import com.example.seckill.common.ResultCode;
 import com.example.seckill.entity.SeckillActivity;
+import com.example.seckill.entity.SeckillStock;
 import com.example.seckill.mapper.SeckillActivityMapper;
+import com.example.seckill.mapper.SeckillStockMapper;
 import com.google.common.util.concurrent.RateLimiter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,10 +25,10 @@ import java.util.List;
 public class SeckillService {
 
     private final SeckillActivityMapper activityMapper;
+    private final SeckillStockMapper stockMapper;
     private final StringRedisTemplate redisTemplate;
     private final DefaultRedisScript<Long> seckillScript;
     private final OrderService orderService;
-    private final ActivityService activityService;
     private final RateLimiter seckillRateLimiter;
 
     @Value("${seckill.redis-enabled:true}")
@@ -61,21 +64,13 @@ public class SeckillService {
             throw new BusinessException(ResultCode.REPEAT_PURCHASE);
         }
 
+        SeckillStock stockRow = stockMapper.selectOne(new LambdaQueryWrapper<SeckillStock>().eq(SeckillStock::getActivityId, activityId));
+        int dbStock = stockRow == null ? 0 : stockRow.getStock();
         String stockKey = "seckill:stock:" + activityId;
-        Long result = redisTemplate.execute(seckillScript, List.of(stockKey));
+        Long result = redisTemplate.execute(seckillScript, List.of(stockKey), String.valueOf(dbStock), String.valueOf(buyTtl.getSeconds()));
         if (result == null) {
-            result = -1L;
-        }
-        if (result == -1L) {
-            activityService.reloadStock(activityId);
-            result = redisTemplate.execute(seckillScript, List.of(stockKey));
-            if (result == null) {
-                result = -1L;
-            }
-        }
-        if (result == -1L) {
             redisTemplate.delete(buyKey);
-            throw new BusinessException(ResultCode.SYSTEM_ERROR, "库存键缺失");
+            throw new BusinessException(ResultCode.SYSTEM_ERROR, "库存扣减失败");
         }
         if (result == 0L) {
             redisTemplate.delete(buyKey);
@@ -88,6 +83,11 @@ public class SeckillService {
             redisTemplate.opsForValue().increment(stockKey);
             redisTemplate.delete(buyKey);
             throw e;
+        } catch (Exception e) {
+            redisTemplate.opsForValue().increment(stockKey);
+            redisTemplate.delete(buyKey);
+            log.error("秒杀落库失败 activityId={} userId={}", activityId, userId, e);
+            throw new BusinessException(ResultCode.SYSTEM_ERROR);
         }
     }
 }

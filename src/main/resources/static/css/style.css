@@ -103,3 +103,5 @@ form input:focus { outline: none; border-color: var(--primary); }
 .toast.error { background: var(--danger); }
 
 .empty { text-align: center; color: var(--muted); padding: 40px 0; }
+
+.origin-price { color: var(--muted); text-decoration: line-through; font-size: 14px; margin-left: 6px; }

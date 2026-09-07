@@ -5,6 +5,7 @@ const state = {
 };
 
 let activities = [];
+let lastStatus = {};
 let timer = null;
 
 const $ = (s) => document.querySelector(s);
@@ -18,6 +19,14 @@ function showToast(message, type = '') {
     setTimeout(() => t.remove(), 2600);
 }
 
+function clearSession() {
+    state.token = state.role = state.nickname = '';
+    localStorage.removeItem('sk_token');
+    localStorage.removeItem('sk_role');
+    localStorage.removeItem('sk_nickname');
+    updateAuthUI();
+}
+
 async function api(path, method = 'GET', body = null) {
     const headers = { 'Content-Type': 'application/json' };
     if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
@@ -27,9 +36,14 @@ async function api(path, method = 'GET', body = null) {
     try {
         res = await fetch(path, opts);
     } catch (e) {
-        return { ok: false, code: 0, message: '网络错误：请确认后端已启动（mvn spring-boot:run）', data: null };
+        return { ok: false, code: 0, message: '网络错误：请确认后端已启动', data: null };
     }
     try { data = await res.json(); } catch (e) {}
+    if (data.code === 401) {
+        clearSession();
+        showToast('登录已过期，请重新登录', 'error');
+        showModal('login');
+    }
     return { ok: res.ok, code: data.code, message: data.message, data: data.data };
 }
 
@@ -40,9 +54,7 @@ function updateAuthUI() {
     $('#registerBtn').classList.toggle('hidden', logged);
     $('#logoutBtn').classList.toggle('hidden', !logged);
     $('#userBadge').classList.toggle('hidden', !logged);
-    if (logged) {
-        $('#userBadge').textContent = state.nickname || state.role;
-    }
+    if (logged) $('#userBadge').textContent = state.nickname || state.role;
     $('#adminTab').classList.toggle('hidden', state.role !== 'ADMIN');
 }
 
@@ -91,11 +103,7 @@ async function handleAuthSubmit(e) {
 
 async function logout() {
     await api('/api/auth/logout', 'POST');
-    state.token = state.role = state.nickname = '';
-    localStorage.removeItem('sk_token');
-    localStorage.removeItem('sk_role');
-    localStorage.removeItem('sk_nickname');
-    updateAuthUI();
+    clearSession();
     switchTab('home');
     loadActivities();
     showToast('已退出登录');
@@ -121,8 +129,20 @@ function fmtCountdown(ms) {
 }
 const STATUS = { 0: ['未开始', 'gray'], 1: ['进行中', 'green'], 2: ['已结束', 'red'] };
 
+function statusOf(a, now) {
+    const start = parseTime(a.startTime), end = parseTime(a.endTime);
+    return now < start ? 0 : (now < end ? 1 : 2);
+}
+
 function updateCountdown() {
     const now = Date.now();
+    let changed = false;
+    activities.forEach(a => {
+        const st = statusOf(a, now);
+        if (lastStatus[a.id] !== undefined && lastStatus[a.id] !== st) changed = true;
+        lastStatus[a.id] = st;
+    });
+    if (changed) renderActivities();
     document.querySelectorAll('[data-cd]').forEach(el => {
         const start = Number(el.dataset.start);
         const end = Number(el.dataset.end);
@@ -133,10 +153,16 @@ function updateCountdown() {
 }
 
 // ---------- 活动 ----------
-async function loadActivities() {
+async function loadActivities(manual = false) {
+    if (manual) $('#activityRefresh').textContent = '刷新中…';
     const r = await api('/api/seckill/activities?page=1&size=50');
     activities = (r.code === 200 && r.data) ? r.data.list : [];
+    lastStatus = {};
     renderActivities();
+    if (manual) {
+        $('#activityRefresh').textContent = '刷新';
+        showToast('已刷新', 'success');
+    }
 }
 
 function renderActivities() {
@@ -150,8 +176,11 @@ function renderActivities() {
         const sold = a.soldOut || a.status !== 1;
         card.innerHTML = `
             <div class="activity-name">${a.goodsName || '商品'}</div>
-            <div class="price-row"><span class="seckill-price">${a.seckillPrice}</span>
-                <span class="badge ${cls}">${st}</span></div>
+            <div class="price-row">
+                <span class="seckill-price">${a.seckillPrice}</span>
+                <span class="origin-price">¥${a.originalPrice ?? a.seckillPrice}</span>
+                <span class="badge ${cls}">${st}</span>
+            </div>
             <div class="meta">
                 <span data-cd data-start="${parseTime(a.startTime)}" data-end="${parseTime(a.endTime)}"></span>
                 <span>开始 ${a.startTime} · 结束 ${a.endTime}</span>
@@ -165,21 +194,31 @@ function renderActivities() {
 
 async function buy(activityId) {
     if (!state.token) { showToast('请先登录', 'error'); showModal('login'); return; }
+    const btn = document.querySelector(`.buy-btn[data-id="${activityId}"]`);
+    if (btn) { btn.disabled = true; btn.textContent = '抢购中…'; }
     const r = await api('/api/seckill/' + activityId + '/orders', 'POST');
     if (r.code === 200) {
         showToast('抢购成功！订单号 ' + r.data.orderNo, 'success');
-        loadActivities();
         loadOrders();
     } else {
         showToast(r.message || '抢购失败', 'error');
     }
+    loadActivities();
 }
 
 // ---------- 订单 ----------
-async function loadOrders() {
-    if (!state.token) { $('#orderList').innerHTML = ''; $('#orderEmpty').classList.remove('hidden'); return; }
+async function loadOrders(manual = false) {
+    if (!state.token) {
+        $('#orderList').innerHTML = '';
+        const empty = $('#orderEmpty');
+        empty.innerHTML = '请先登录后查看订单 <button class="btn btn-primary btn-sm" onclick="showModal(\'login\')">去登录</button>';
+        empty.classList.remove('hidden');
+        return;
+    }
+    if (manual) $('#orderRefresh').textContent = '刷新中…';
     const r = await api('/api/orders/mine?page=1&size=100');
     const list = (r.code === 200 && r.data) ? r.data.list : [];
+    $('#orderEmpty').innerHTML = '还没有订单，快去抢一件吧';
     $('#orderEmpty').classList.toggle('hidden', list.length > 0);
     const box = $('#orderList');
     box.innerHTML = '';
@@ -201,6 +240,10 @@ async function loadOrders() {
             </div>`;
         box.appendChild(item);
     });
+    if (manual) {
+        $('#orderRefresh').textContent = '刷新';
+        showToast('已刷新', 'success');
+    }
 }
 
 async function pay(orderNo) {
@@ -216,6 +259,11 @@ async function cancelOrder(orderNo) {
 }
 
 // ---------- 管理后台 ----------
+function fmtLocal(d) {
+    const pad = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
 async function loadAdmin() {
     if (state.role !== 'ADMIN') return;
     const r = await api('/api/admin/activities?page=1&size=100');
@@ -237,11 +285,16 @@ async function loadAdmin() {
 
 async function createActivity(e) {
     e.preventDefault();
+    const startVal = $('#f_start').value, endVal = $('#f_end').value;
+    if (new Date(startVal) >= new Date(endVal)) {
+        showToast('结束时间必须晚于开始时间', 'error');
+        return;
+    }
     const body = {
         goodsId: Number($('#f_goodsId').value),
         seckillPrice: Number($('#f_price').value),
-        startTime: $('#f_start').value.replace('T', ' ') + ':00',
-        endTime: $('#f_end').value.replace('T', ' ') + ':00',
+        startTime: startVal.replace('T', ' ') + ':00',
+        endTime: endVal.replace('T', ' ') + ':00',
         stock: Number($('#f_stock').value)
     };
     const r = await api('/api/admin/activities', 'POST', body);
@@ -258,6 +311,12 @@ async function reloadStock(activityId) {
     else showToast(r.message || '重置失败', 'error');
 }
 
+function presetNow() {
+    const now = new Date();
+    $('#f_start').value = fmtLocal(new Date(now.getTime() - 5 * 60 * 1000));
+    $('#f_end').value = fmtLocal(new Date(now.getTime() + 2 * 60 * 60 * 1000));
+}
+
 // ---------- 事件绑定 ----------
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
 $('#loginBtn').addEventListener('click', () => showModal('login'));
@@ -267,8 +326,9 @@ $('#modalClose').addEventListener('click', closeModal);
 $('#modal').addEventListener('click', (e) => { if (e.target === $('#modal')) closeModal(); });
 $('#authForm').addEventListener('submit', handleAuthSubmit);
 $('#activityForm').addEventListener('submit', createActivity);
-$('#activityRefresh').addEventListener('click', loadActivities);
-$('#orderRefresh').addEventListener('click', loadOrders);
+$('#presetNow').addEventListener('click', presetNow);
+$('#activityRefresh').addEventListener('click', () => loadActivities(true));
+$('#orderRefresh').addEventListener('click', () => loadOrders(true));
 
 $('#activityGrid').addEventListener('click', (e) => {
     const btn = e.target.closest('.buy-btn');
@@ -289,4 +349,5 @@ $('#adminList').addEventListener('click', (e) => {
 updateAuthUI();
 loadActivities();
 if (state.token) { loadOrders(); if (state.role === 'ADMIN') loadAdmin(); }
+if (state.role === 'ADMIN') presetNow();
 timer = setInterval(updateCountdown, 1000);

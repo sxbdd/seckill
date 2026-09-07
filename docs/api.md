@@ -169,3 +169,8 @@ POST /api/admin/activities/{id}/stock/reload
 - 越权：订单类接口一律用 token userId 过滤，禁止路径参数指定他人；
 - 参数校验：DTO + jakarta validation + 全局异常；
 - 防注入：MyBatis 预编译（#{}），禁止 ${} 拼接用户输入。
+
+## 附：商品列表接口（对齐 requirements F2.2）
+- `GET /api/goods?page=1&size=10`（公开，无鉴权）
+- 返回：`data: { total, list: [ {id, goodsName, goodsDesc, price, status} ] }`
+- 仅返回上架商品（status=1），按 id 升序分页。

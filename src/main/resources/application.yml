@@ -42,3 +42,8 @@ seckill:
   admin-password: ${SECKILL_ADMIN_PASSWORD:admin123}
   reconcile-interval-ms: 60000
 
+
+logging:
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %-5level [%thread] [%X{traceId}] %logger{36} - %msg%n"
+

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>秒杀商城</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%234f6ef7'/><text x='16' y='23' font-size='20' text-anchor='middle' fill='white'>秒</text></svg>">
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
@@ -33,7 +34,7 @@
 
     <main class="container">
         <section id="home" class="view active">
-            <div class="section-title"><h2>进行中的活动</h2><span id="activityRefresh">刷新</span></div>
+            <div class="section-title"><h2>秒杀活动</h2><span id="activityRefresh">刷新</span></div>
             <div id="activityGrid" class="activity-grid"></div>
             <div id="activityEmpty" class="empty hidden">暂无进行中或即将开始的活动</div>
         </section>
@@ -64,6 +65,7 @@
                         <label>库存
                             <input type="number" id="f_stock" value="100" min="1" max="100000" required>
                         </label>
+                        <button type="button" class="btn btn-ghost btn-block" id="presetNow">一键设为进行中（立即开抢）</button>
                         <button type="submit" class="btn btn-primary btn-block">创建活动</button>
                     </form>
                 </div>
