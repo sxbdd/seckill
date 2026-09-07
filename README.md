@@ -65,6 +65,11 @@ JDK 17 · Maven 3.8+ · MySQL 8 · Redis 6+（版本与配置见 [docs/deploymen
    ```
 5. 健康检查：`GET http://127.0.0.1:8080/actuator/health` → `{"status":"UP"}`
 
+
+## 如何使用（浏览器前端）
+1. 启动后浏览器打开：http://localhost:8080/
+2. 先「注册」一个用户，或用管理员 `admin / admin123` 登录
+3. 首页可浏览秒杀活动、点「立即抢购」；「我的订单」可支付/取消；管理员登录后可见「管理后台」创建活动
 ## 默认账号（仅本地开发）
 - 管理员：`admin / admin123`（首次启动自动初始化）
 - 普通用户：调用 `POST /api/auth/register` 注册
@@ -89,3 +94,5 @@ java -jar target/seckill-1.0.0.jar
 见 [docs/deployment.md](docs/deployment.md) §6 Runbook。
 
 > 一切规格以 `docs/` 为准；本文件是入口速览。
+
+

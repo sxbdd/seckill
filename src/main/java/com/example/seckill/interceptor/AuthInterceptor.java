@@ -21,9 +21,14 @@ public class AuthInterceptor implements HandlerInterceptor {
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             return true;
         }
-        String method = request.getMethod();
         String uri = request.getRequestURI();
 
+        // 非 API 路径（首页、静态资源）直接放行
+        if (!uri.startsWith("/api")) {
+            return true;
+        }
+
+        String method = request.getMethod();
         if (isPublic(method, uri)) {
             return true;
         }
